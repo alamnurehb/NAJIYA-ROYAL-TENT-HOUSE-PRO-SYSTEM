@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="hi">
 <head>
@@ -8,17 +7,22 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial;background:#f2f3f8;color:#222}
-header{background:#241044;color:white;text-align:center;padding:24px 12px}
+header{background:#241044;color:white;text-align:center;padding:25px 12px}
 header h1{margin:0;font-size:23px}
 header p{color:#ffb74d}
-.container{max-width:650px;margin:18px auto;padding:12px}
+.container{max-width:700px;margin:18px auto;padding:12px}
 .card{background:white;padding:18px;border-radius:12px;margin-bottom:16px;box-shadow:0 2px 9px #ddd}
 h2{color:#512080;font-size:19px}
 input,select,textarea{width:100%;padding:12px;margin:7px 0 13px;border:1px solid #ccc;border-radius:7px;font-size:15px}
-button{background:#54218a;color:white;border:0;padding:12px 18px;border-radius:7px;font-size:15px;cursor:pointer}
-button:hover{background:#35105e}
+button{background:#54218a;color:white;border:0;padding:11px 15px;border-radius:7px;font-size:14px;cursor:pointer;margin:4px}
+button:hover{opacity:.85}
 .admin{background:#e98219}
-.booking{border-bottom:1px solid #ddd;padding:12px 0}
+.reject{background:#b3261e}
+.delete{background:#555}
+.accept{background:#18864b}
+.booking{border:1px solid #ddd;padding:13px;margin:12px 0;border-radius:9px;overflow-wrap:anywhere}
+.status{font-weight:bold;color:#512080}
+.hidden{display:none}
 footer{text-align:center;padding:20px;color:#666}
 </style>
 </head>
@@ -33,12 +37,11 @@ footer{text-align:center;padding:20px;color:#666}
 
 <div class="card">
 <h2>Customer Booking Form</h2>
-
 <form id="bookingForm">
 <label>Customer Name</label>
 <input id="name" placeholder="ग्राहक का नाम" required>
 
-<label>Mobile Number</label>
+<label>Mobile Number (WhatsApp)</label>
 <input id="phone" type="tel" placeholder="मोबाइल नंबर" required>
 
 <label>Event Type</label>
@@ -76,72 +79,185 @@ footer{text-align:center;padding:20px;color:#666}
 
 <div class="card">
 <h2>Admin Panel</h2>
-<p>कुल बुकिंग: <strong id="total">0</strong></p>
-<div id="bookings">अभी कोई बुकिंग नहीं है।</div>
-<button class="admin" onclick="showBookings()">Refresh Bookings</button>
+
+<div id="loginBox">
+<p>Admin Login करने के लिए Password डालें।</p>
+<input id="adminPassword" type="password" placeholder="Admin Password">
+<button onclick="login()">Login</button>
+<p id="loginMessage"></p>
 </div>
 
+<div id="adminArea" class="hidden">
+<p>कुल बुकिंग: <strong id="total">0</strong></p>
+<p>Pending: <strong id="pending">0</strong></p>
+<p>Accepted: <strong id="accepted">0</strong></p>
+<p>Rejected: <strong id="rejected">0</strong></p>
+
+<div id="bookings">अभी कोई बुकिंग नहीं है।</div>
+<button class="admin" onclick="showBookings()">Refresh Bookings</button>
+<button class="delete" onclick="logout()">Logout</button>
+</div>
+</div>
 </div>
 
 <footer>© 2026 NAJIYA ROYAL TENT HOUSE</footer>
 
 <script>
+// इसे अपनी पसंद के पासवर्ड से बदलें।
+// यह केवल शुरुआती डेमो सुरक्षा है।
+const ADMIN_PASSWORD = "ChangeThis123";
+
 const form=document.getElementById("bookingForm");
 
 function getBookings(){
+try{
 return JSON.parse(localStorage.getItem("najiyaBookings")||"[]");
+}catch(e){
+return [];
+}
+}
+
+function saveBookings(list){
+localStorage.setItem("najiyaBookings",JSON.stringify(list));
 }
 
 form.addEventListener("submit",function(e){
 e.preventDefault();
 
 const booking={
-name:document.getElementById("name").value,
-phone:document.getElementById("phone").value,
+id:Date.now().toString(),
+name:document.getElementById("name").value.trim(),
+phone:document.getElementById("phone").value.trim(),
 event:document.getElementById("event").value,
 date:document.getElementById("date").value,
-address:document.getElementById("address").value,
+address:document.getElementById("address").value.trim(),
 tent:document.getElementById("tent").value,
 chairs:document.getElementById("chairs").value,
 tables:document.getElementById("tables").value,
 lights:document.getElementById("lights").value,
-amount:document.getElementById("amount").value
+amount:document.getElementById("amount").value,
+status:"Pending"
 };
 
 const list=getBookings();
 list.push(booking);
-localStorage.setItem("najiyaBookings",JSON.stringify(list));
+saveBookings(list);
 
 alert("Booking successfully saved!");
 form.reset();
 showBookings();
 });
 
+function login(){
+const pass=document.getElementById("adminPassword").value;
+if(pass===ADMIN_PASSWORD){
+sessionStorage.setItem("najiyaAdminLoggedIn","yes");
+document.getElementById("loginBox").classList.add("hidden");
+document.getElementById("adminArea").classList.remove("hidden");
+showBookings();
+}else{
+document.getElementById("loginMessage").textContent="गलत Password!";
+}
+}
+
+function logout(){
+sessionStorage.removeItem("najiyaAdminLoggedIn");
+document.getElementById("adminArea").classList.add("hidden");
+document.getElementById("loginBox").classList.remove("hidden");
+document.getElementById("adminPassword").value="";
+}
+
+function updateStatus(id,status){
+const list=getBookings();
+const booking=list.find(b=>b.id===id);
+if(!booking)return;
+booking.status=status;
+saveBookings(list);
+showBookings();
+}
+
+function deleteBooking(id){
+if(!confirm("क्या आप यह Booking Delete करना चाहते हैं?"))return;
+const list=getBookings().filter(b=>b.id!==id);
+saveBookings(list);
+showBookings();
+}
+
+function sendWhatsApp(phone,name,status){
+let number=phone.replace(/\D/g,"");
+if(number.length===10)number="91"+number;
+const message="नमस्ते "+name+", आपकी NAJIYA ROYAL TENT HOUSE Booking का Status: "+status;
+window.open("https://wa.me/"+number+"?text="+encodeURIComponent(message),"_blank");
+}
+
 function showBookings(){
 const list=getBookings();
 document.getElementById("total").textContent=list.length;
-const box=document.getElementById("bookings");
+document.getElementById("pending").textContent=list.filter(b=>b.status==="Pending").length;
+document.getElementById("accepted").textContent=list.filter(b=>b.status==="Accepted").length;
+document.getElementById("rejected").textContent=list.filter(b=>b.status==="Rejected").length;
 
+const box=document.getElementById("bookings");
 if(list.length===0){
 box.textContent="अभी कोई बुकिंग नहीं है।";
 return;
 }
 
-box.innerHTML=list.map((b,i)=>`
-<div class="booking">
-<strong>${i+1}. ${b.name}</strong><br>
-Mobile: ${b.phone}<br>
-Event: ${b.event}<br>
-Date: ${b.date}<br>
-Address: ${b.address}<br>
-Tent: ${b.tent}, Chairs: ${b.chairs}<br>
-Tables: ${b.tables}, Lights: ${b.lights}<br>
-Amount: ₹${b.amount}
-</div>
-`).join("");
+box.innerHTML="";
+
+list.slice().reverse().forEach((b)=>{
+const item=document.createElement("div");
+item.className="booking";
+
+const details=document.createElement("div");
+details.textContent=
+"ग्राहक: "+b.name+
+" | Mobile: "+b.phone+
+" | Event: "+b.event+
+" | Date: "+b.date+
+" | Address: "+b.address+
+" | Tent: "+b.tent+
+" | Chairs: "+b.chairs+
+" | Tables: "+b.tables+
+" | Lights: "+b.lights+
+" | Amount: ₹"+b.amount;
+
+const status=document.createElement("p");
+status.className="status";
+status.textContent="Status: "+b.status;
+
+item.append(details,status);
+
+const accept=document.createElement("button");
+accept.className="accept";
+accept.textContent="Accept";
+accept.onclick=()=>updateStatus(b.id,"Accepted");
+
+const reject=document.createElement("button");
+reject.className="reject";
+reject.textContent="Reject";
+reject.onclick=()=>updateStatus(b.id,"Rejected");
+
+const whatsapp=document.createElement("button");
+whatsapp.textContent="WhatsApp";
+whatsapp.onclick=()=>sendWhatsApp(b.phone,b.name,b.status);
+
+const del=document.createElement("button");
+del.className="delete";
+del.textContent="Delete";
+del.onclick=()=>deleteBooking(b.id);
+
+item.append(accept,reject,whatsapp,del);
+box.appendChild(item);
+});
 }
 
+if(sessionStorage.getItem("najiyaAdminLoggedIn")==="yes"){
+document.getElementById("loginBox").classList.add("hidden");
+document.getElementById("adminArea").classList.remove("hidden");
 showBookings();
+}
 </script>
+
 </body>
 </html>
